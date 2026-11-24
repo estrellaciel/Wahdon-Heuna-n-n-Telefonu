@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Heuna'nın Telefonu</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; }
+    
+    .wallpaper {
+      position: fixed; inset: 0;
+      background: url('bg.jpg') center/cover no-repeat;
+      transition: filter 0.35s ease, transform 0.35s ease;
+    }
+    .wallpaper.blurred {
+      filter: blur(18px) brightness(0.65);
+      transform: scale(1.06);
+    }
+
+    .lock-screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+      padding: 64px 24px 36px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.28), rgba(0,0,0,0.12), rgba(0,0,0,0.45));
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      cursor: pointer;
+    }
+    .lock-screen.hidden { opacity: 0; pointer-events: none; transform: translateY(-40px); }
+
+    .clock-box { text-align: center; text-shadow: 0 2px 14px rgba(0,0,0,0.35); }
+    .owner-tag { font-size: 14px; font-weight: 500; opacity: 0.9; margin-bottom: 6px; letter-spacing: 0.4px; }
+    .date { font-size: 18px; font-weight: 500; opacity: 0.95; }
+    .time { font-size: 82px; font-weight: 700; line-height: 1.02; letter-spacing: -2px; }
+
+    .swipe-hint {
+      text-align: center; font-size: 15px; font-weight: 500;
+      opacity: 0.92; animation: pulse 2s infinite;
+    }
+    .home-bar {
+      width: 134px; height: 5px; background: rgba(255,255,255,0.85);
+      border-radius: 99px; margin: 12px auto 0;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 0.65; } 50% { opacity: 1; } }
+
+    .passcode-screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      padding: 24px; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .passcode-screen.active { opacity: 1; pointer-events: auto; }
+
+    .pass-title { font-size: 20px; font-weight: 500; margin-bottom: 18px; }
+    .dots { display: flex; gap: 16px; margin-bottom: 38px; }
+    .dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1.5px solid #fff; transition: background 0.15s;
+    }
+    .dot.filled { background: #fff; }
+    .dots.shake { animation: shake 0.35s; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
+
+    .keypad {
+      display: grid; grid-template-columns: repeat(3, 76px); gap: 18px 22px;
+      justify-content: center;
+    }
+    .key {
+      width: 76px; height: 76px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      font-size: 30px; font-weight: 400; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .key:active { background: rgba(255, 255, 255, 0.45); }
+    .key span { font-size: 10px; letter-spacing: 1.5px; opacity: 0.8; margin-top: -2px; }
+    .key.empty { background: transparent; backdrop-filter: none; pointer-events: none; }
+
+    .bottom-actions {
+      width: 270px; display: flex; justify-content: space-between;
+      margin-top: 32px; font-size: 16px;
+    }
+    .bottom-actions button {
+      background: none; border: none; color: #fff; font-size: 16px; cursor: pointer; opacity: 0.9;
+    }
+
+    .unlocked-screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      padding: 28px; text-align: center;
+      background: rgba(15, 15, 20, 0.72); backdrop-filter: blur(20px);
+      opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+    }
+    .unlocked-screen.active { opacity: 1; pointer-events: auto; }
+    .card {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 24px; padding: 28px 22px; max-width: 340px; width: 100%;
+    }
+    .card h2 { font-size: 22px; margin-bottom: 10px; }
+    .card p { font-size: 15px; line-height: 1.5; opacity: 0.9; margin-bottom: 20px; }
+    .lock-btn {
+      background: #fff; color: #111; border: none; padding: 10px 22px;
+      border-radius: 99px; font-weight: 600; font-size: 14px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wallpaper" id="wallpaper"></div>
+
+  <div class="lock-screen" id="lockScreen" onclick="openPasscode()">
+    <div class="clock-box">
+      <div class="owner-tag">Heuna'nın Telefonu</div>
+      <div class="date" id="dateText">24 Kasım Salı</div>
+      <div class="time" id="timeText">09:41</div>
+    </div>
+    <div class="swipe-hint">
+      Açmak için dokun veya yukarı kaydır
+      <div class="home-bar"></div>
+    </div>
+  </div>
+
+  <div class="passcode-screen" id="passcodeScreen">
+    <div class="pass-title">Parolayı Girin</div>
+    <div class="dots" id="dots">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+
+    <div class="keypad">
+      <div class="key" onclick="pressKey('1')">1<span>&nbsp;</span></div>
+      <div class="key" onclick="pressKey('2')">2<span>ABC</span></div>
+      <div class="key" onclick="pressKey('3')">3<span>DEF</span></div>
+      <div class="key" onclick="pressKey('4')">4<span>GHI</span></div>
+      <div class="key" onclick="pressKey('5')">5<span>JKL</span></div>
+      <div class="key" onclick="pressKey('6')">6<span>MNO</span></div>
+      <div class="key" onclick="pressKey('7')">7<span>PQRS</span></div>
+      <div class="key" onclick="pressKey('8')">8<span>TUV</span></div>
+      <div class="key" onclick="pressKey('9')">9<span>WXYZ</span></div>
+      <div class="key empty"></div>
+      <div class="key" onclick="pressKey('0')">0</div>
+      <div class="key empty"></div>
+    </div>
+
+    <div class="bottom-actions">
+      <button onclick="closePasscode()">Vazgeç</button>
+      <button onclick="deleteKey()">Sil</button>
+    </div>
+  </div>
+
+  <div class="unlocked-screen" id="unlockedScreen">
+    <div class="card">
+      <h2>Hoş Geldin ✨</h2>
+      <p>Kilit açıldı! Buraya istediğin özel mesajı, notu veya görseli ekleyebilirsin.</p>
+      <button class="lock-btn" onclick="lockAgain()">Tekrar Kilitle</button>
+    </div>
+  </div>
+
+  <script>
+    const CORRECT_PASS = "1412";
+    let entered = "";
+
+    function updateClock() {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('timeText').textContent = `${hours}:${mins}`;
+
+      const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+      const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+      document.getElementById('dateText').textContent = `${now.getDate()} ${months[now.getMonth()]} ${days[now.getDay()]}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    let startY = 0;
+    const lockScreen = document.getElementById('lockScreen');
+    lockScreen.addEventListener('touchstart', e => { startY = e.touches[0].clientY; });
+    lockScreen.addEventListener('touchend', e => {
+      if (startY - e.changedTouches[0].clientY > 40) openPasscode();
+    });
+
+    function openPasscode() {
+      lockScreen.classList.add('hidden');
+      document.getElementById('wallpaper').classList.add('blurred');
+      document.getElementById('passcodeScreen').classList.add('active');
+    }
+
+    function closePasscode() {
+      entered = "";
+      updateDots();
+      document.getElementById('passcodeScreen').classList.remove('active');
+      document.getElementById('wallpaper').classList.remove('blurred');
+      lockScreen.classList.remove('hidden');
+    }
+
+    function pressKey(num) {
+      if (entered.length >= 4) return;
+      entered += num;
+      updateDots();
+
+      if (entered.length === 4) {
+        setTimeout(() => {
+          if (entered === CORRECT_PASS) {
+            document.getElementById('passcodeScreen').classList.remove('active');
+            document.getElementById('unlockedScreen').classList.add('active');
+          } else {
+            const dotsEl = document.getElementById('dots');
+            dotsEl.classList.add('shake');
+            setTimeout(() => {
+              dotsEl.classList.remove('shake');
+              entered = "";
+              updateDots();
+            }, 350);
+          }
+        }, 120);
+      }
+    }
+
+    function deleteKey() {
+      entered = entered.slice(0, -1);
+      updateDots();
+    }
+
+    function updateDots() {
+      const dots = document.querySelectorAll('.dot');
+      dots.forEach((d, i) => d.classList.toggle('filled', i < entered.length));
+    }
+
+    function lockAgain() {
+      entered = "";
+      updateDots();
+      document.getElementById('unlockedScreen').classList.remove('active');
+      document.getElementById('wallpaper').classList.remove('blurred');
+      lockScreen.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
